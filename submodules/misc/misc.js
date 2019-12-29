@@ -10,6 +10,20 @@ define(function(require) {
 			'callflows.fetchActions': 'miscDefineActions'
 		},
 
+		appFlags: {
+			misc: {
+				webhook: {
+					verbsWithFormat: ['post', 'put'],
+					bodyFormats: ['form-data', 'json'],
+					httpVerbs: {
+						get: 'GET',
+						post: 'POST',
+						put: 'PUT'
+					}
+				}
+			}
+		},
+
 		miscGetGroupPickupData: function(callback) {
 			var self = this;
 
@@ -104,7 +118,7 @@ define(function(require) {
 								});
 
 								popup_html = $(self.getTemplate({
-									name: 'edit_dialog',
+									name: 'callflow-edit_dialog',
 									data: {
 										objects: {
 											type: 'callflow',
@@ -402,6 +416,58 @@ define(function(require) {
 						}
 					}
 				},
+				'set_alert_info[]': {
+					name: self.i18n.active().callflows.setAlertInfo.name,
+					icon: 'play',
+					category: self.i18n.active().oldCallflows.advanced_cat,
+					module: 'set_alert_info',
+					tip: self.i18n.active().callflows.setAlertInfo.tip,
+					data: {
+						alert_info: ''
+					},
+					rules: [
+						{
+							type: 'quantity',
+							maxSize: '1'
+						}
+					],
+					isUsable: 'true',
+					weight: 20,
+
+					caption: function(node) {
+						return (node.getMetadata('alert_info') || '');
+					},
+
+					edit: function(node, callback) {
+						var popup_html = $(self.getTemplate({
+								name: 'setAlertEdit',
+								data: {
+									alert_info: node.getMetadata('alert_info') || ''
+								},
+								submodule: 'misc'
+							})),
+							popup;
+
+						$('#add', popup_html).click(function() {
+							var alert_info_val = $('#alert_info', popup_html).val();
+
+							node.setMetadata('alert_info', alert_info_val);
+
+							node.caption = alert_info_val;
+
+							popup.dialog('close');
+						});
+
+						popup = monster.ui.dialog(popup_html, {
+							title: self.i18n.active().callflows.setAlertInfo.title,
+							beforeClose: function() {
+								if (typeof callback === 'function') {
+									callback();
+								}
+							}
+						});
+					}
+				},
 				'manual_presence[]': {
 					name: self.i18n.active().oldCallflows.manual_presence,
 					icon: 'lightbulb_on',
@@ -423,7 +489,7 @@ define(function(require) {
 					},
 					edit: function(node, callback) {
 						var popup_html = $(self.getTemplate({
-								name: 'callflowEdit',
+								name: 'presence-callflowEdit',
 								data: {
 									data_presence: {
 										'presence_id': node.getMetadata('presence_id') || '',
@@ -593,12 +659,12 @@ define(function(require) {
 							});
 
 							popup_html = $(self.getTemplate({
-								name: 'callflowEdit',
+								name: 'fax-callflowEdit',
 								data: {
 									objects: {
 										items: data,
 										selected: node.getMetadata('owner_id') || '',
-										t_38: node.getMetadata('media') && node.getMetadata('media').fax_option || false
+										t_38: node.getMetadata('media') && (node.getMetadata('media').fax_option || false)
 									}
 								},
 								submodule: 'misc'
@@ -1169,10 +1235,47 @@ define(function(require) {
 					edit: function(node, callback) {
 						self.miscEditMissedCallAlerts(node, callback);
 					}
+				},
+				'set_variables[]': {
+					name: self.i18n.active().callflows.setCav.title,
+					icon: 'settings2',
+					category: self.i18n.active().oldCallflows.advanced_cat,
+					module: 'set_variables',
+					tip: self.i18n.active().callflows.setCav.tip,
+					data: {
+						custom_application_vars: {}
+					},
+					rules: [],
+					isUsable: 'true',
+					weight: 31,
+					caption: function(node) {
+						return '';
+					},
+					edit: function(node, callback) {
+						self.miscEditSetCAV(node, callback);
+					}
+				},
+				'webhook[]': {
+					name: self.i18n.active().callflows.webhook.title,
+					icon: 'to_cloud',	//graph2
+					category: self.i18n.active().oldCallflows.advanced_cat,
+					module: 'webhook',
+					tip: self.i18n.active().callflows.webhook.tip,
+					data: {},
+					rules: [],
+					isUsable: 'true',
+					weight: 170,
+					caption: function() {
+						return '';
+					},
+					edit: function(node, callback) {
+						self.miscRenderEditWebhook(node, callback);
+					}
 				}
 			});
 		},
 
+		/* Render edit dialogs */
 		miscEditMissedCallAlerts: function(node, callback) {
 			var self = this,
 				recipients = node.getMetadata('recipients'),
@@ -1258,6 +1361,198 @@ define(function(require) {
 			});
 		},
 
+		miscEditSetCAV: function(node, callback) {
+			var self = this,
+				variables = _.extend({}, node.getMetadata('custom_application_vars')),
+				initTemplate = function() {
+					var template = $(self.getTemplate({
+							name: 'setcav-dialog',
+							data: {
+								variables: variables
+							},
+							submodule: 'misc'
+						})),
+						popup;
+
+					if (_.size(variables) <= 0) {
+						addRow(template);
+					}
+
+					_.each(variables, function(variable, key) {
+						addRow(template, {
+							key: key,
+							value: variable
+						});
+					});
+
+					popup = monster.ui.dialog(template, {
+						title: self.i18n.active().callflows.setCav.popupTitle,
+						width: 500,
+						beforeClose: function() {
+							if (typeof callback === 'function') {
+								callback();
+							}
+						}
+					});
+
+					bindSetCavEvents({
+						template: template,
+						popup: popup
+					});
+				},
+				bindSetCavEvents = function(args) {
+					var template = args.template,
+						popup = args.popup,
+						formData;
+
+					template.find('.cav-add-row .svg-icon')
+						.on('click', function() {
+							addRow(template);
+						});
+
+					template.find('#save_cav_variables').on('click', function() {
+						formData = monster.ui.getFormData('set_cav_form');
+						variables = _
+							.chain(formData.items)
+							.reject(function(item) {
+								return _.isEmpty(item.key) || _.isEmpty(item.value);
+							})
+							.keyBy('key')
+							.mapValues('value')
+							.value();
+
+						node.setMetadata('custom_application_vars', variables);
+
+						popup.dialog('close');
+					});
+				},
+				addRow = function(template, data) {
+					var cavRow = $(self.getTemplate({
+						name: 'setcav-row',
+						submodule: 'misc',
+						data: _.merge(data, {
+							index: template.find('.cav-list tbody tr').length + 1
+						})
+					}));
+
+					template.find('.cav-list tbody')
+						.append(cavRow);
+
+					template.find('.cav-remove-row')
+						.on('click', function() {
+							if (template.find('.cav-list tbody tr').length <= 1) {
+								return;
+							}
+
+							$(this).parent().parent().remove();
+						});
+				};
+
+			initTemplate();
+		},
+
+		miscRenderEditWebhook: function(node, callback) {
+			var self = this,
+				popup,
+				initTemplate = function() {
+					var data = {
+							hasVerbWithFormat: _.includes(self.appFlags.misc.webhook.verbsWithFormat, node.getMetadata('http_verb')),
+							bodyFormatList: _.map(self.appFlags.misc.webhook.bodyFormats, function(item) {
+								return {
+									value: item,
+									label: _.get(self.i18n.active().callflows.webhook.format.options, _.camelCase(item), monster.util.formatVariableToDisplay(item))
+								};
+							}),
+							httpVerbsList: self.appFlags.misc.webhook.httpVerbs,
+							format: node.getMetadata('format', ''),
+							uri: node.getMetadata('uri', ''),
+							http_verb: node.getMetadata('http_verb', 'get'),
+							retries: node.getMetadata('retries', 1),
+							custom_data: node.getMetadata('custom_data', {})
+						},
+						$template = $(self.getTemplate({
+							name: 'webhook-callflowEdit',
+							data: data,
+							submodule: 'misc'
+						})),
+						$form = $template.find('#webhook_form');
+
+					monster.ui.keyValueEditor($template.find('.custom-data-container'), {
+						data: data.custom_data,
+						inputName: 'custom_data'
+					});
+
+					monster.ui.tooltips($template);
+
+					monster.ui.validate($form, {
+						rules: {
+							uri: {
+								required: true,
+								url: true
+							}
+						},
+						messages: {
+							uri: {
+								url: self.i18n.active().callflows.webhook.uri.errorMessages.url
+							}
+						}
+					});
+
+					$template.find('#http_verb').on('change', function() {
+						var $this = $(this),
+							newValue = $this.val(),
+							$formPopupField = $template.find('#form_popup_field'),
+							animationMethod = _.includes(self.appFlags.misc.webhook.verbsWithFormat, newValue) ? 'slideDown' : 'slideUp';
+
+						$formPopupField[animationMethod](250);
+					});
+
+					$template.find('#add').on('click', function(e) {
+						e.preventDefault();
+
+						if (!monster.ui.valid($form)) {
+							return;
+						}
+
+						var formData = monster.ui.getFormData('webhook_form');
+
+						_.each(formData, function(value, key) {
+							if (key === 'custom_data') {
+								value = _
+									.chain(value)
+									.keyBy('key')
+									.mapValues('value')
+									.value();
+							} else if (key === 'retries') {
+								value = _.parseInt(value, 10);
+							} else if (
+								key === 'format'
+								&& !_.includes(self.appFlags.misc.webhook.verbsWithFormat, formData.http_verb)
+							) {
+								node.deleteMetadata('format');
+								return;
+							}
+
+							node.setMetadata(key, value);
+						});
+
+						popup.dialog('close');
+					});
+
+					return $template;
+				};
+
+			popup = monster.ui.dialog(initTemplate(), {
+				title: self.i18n.active().callflows.webhook.popupTitle,
+				beforeClose: function() {
+					if (_.isFunction(callback)) {
+						callback();
+					}
+				}
+			});
+		},
+
+		/* API helpers */
 		miscDeviceList: function(callback) {
 			var self = this;
 

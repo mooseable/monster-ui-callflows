@@ -1,4 +1,23 @@
 {
+	"callflowsApp": {
+		"common": {
+			"noOwner": "- No owner -"
+		},
+		"editor": {
+			"confirmDialog": {
+				"enableModule": {
+					"text": "This action is currently disabled, do you want to enable it?",
+					"cancel": "No",
+					"ok": "Yes"
+				}
+			},
+			"moduleBox": {
+				"tooltip": {
+					"disabled": "Disabled"
+				}
+			}
+		}
+	},
 	"callflows": {
 		"addCallflow": "Add Callflow",
 		"searchDatabase": "Search Database",
@@ -152,8 +171,6 @@
 			"caller_id_number_data_content3": "Define the Caller ID Number of this Device for Emergency Calls.",
 			"music_on_hold": "Music on Hold",
 			"music_on_hold_data_content": "Select the media file that you want to be played by default when it's not set on a user or a device.",
-			"peer_to_peer_audio": "Peer to Peer Audio",
-			"peer_to_peer_audio_data_content": "Select the kind of Peer-to-Peer that you would like to set on this device",
 			"secure_rtp": "Secure RTP",
 			"none": "None",
 			"srtp": "SRTP",
@@ -207,7 +224,8 @@
 			"caller_id_name_regex": "/^[0-9A-Za-z ,]{0,30}$/",
 			"__comment": "UI-1887: Internationalize the Mobile device view",
 			"__version": "v3.23",
-			"view_mobile_phone": "View Mobile",
+			"view_mobile_phone": "Viewing Mobile",
+			"view_application_device": "Viewing Application Phone",
 			"mdn": "MDN",
 			"mdn_data_content": "Mobile Device Number",
 			"__version": "3.22",
@@ -216,6 +234,19 @@
 			"mediaWebrtc": {
 				"content": "If checked, forces a WebRTC compatible SDP on the INVITE.",
 				"label": "WebRTC"
+			},
+			"asserted": "Asserted Identity",
+			"caller_id_name_data_content4": "Define the Caller ID Name of this Device, to be used for P-Asserted-Identity header (max. 30 chars).",
+			"caller_id_number_data_content4": "Define the Caller ID Number of this Device, to be used for P-Asserted-Identity header.",
+			"caller_id_realm": "Caller ID Realm",
+			"caller_id_realm_placeholder": "Realm",
+			"caller_id_realm_data_content4": "Define the Caller ID Realm of this Device, to be used for P-Asserted-Identity header.",
+			"validation": {
+				"caller_id": {
+					"name": "Please only enter alphanumeric characters, space or comma",
+					"number": "Please enter a valid phone number",
+					"realm": "Please enter a valid realm"
+				}
 			}
 		},
 		"disa": {
@@ -307,8 +338,6 @@
 			"options": "Options",
 			"no_name": "(no name)",
 			"assign_to": "Assign to",
-			"no": "- No",
-			"owner": "owner -",
 			"edit_user": "Edit",
 			"create_user": "Create",
 			"belongs_to_data_content": "Select the owner of this faxbox",
@@ -321,6 +350,7 @@
 			"caller_id": "Caller ID",
 			"caller_id_placeholder": "Caller ID",
 			"caller_id_data_content": "Caller ID for this fax box",
+			"caller_id_no_selected": "- No caller ID -",
 			"fax_header": "Fax header",
 			"fax_header_placeholder": "Fax header",
 			"fax_header_data_content": "Information imprinted on the fax",
@@ -735,7 +765,8 @@
 				},
 				"caller_id": {
 					"name": "Please only enter alphanumeric characters, space or comma",
-					"number": "Please enter a valid phone number"
+					"number": "Please enter a valid phone number",
+					"realm": "Please enter a valid realm"
 				}
 			},
 			"__version": "4.0",
@@ -744,7 +775,13 @@
 			"failover_callforward_content": "When checked, if all this user's devices are unregistered, then the system will automatically call-forward (even if the Enable Call-Forward setting isn't enabled)",
 			"__comment": "UI-2921: adding way to impersonate users",
 			"__version": "4.2",
-			"impersonate": "Impersonate"
+			"impersonate": "Impersonate",
+			"asserted": "Asserted Identity",
+			"caller_id_name_data_content4": "Define the Caller ID Name of this User, to be used for P-Asserted-Identity header (max. 30 chars).",
+			"caller_id_number_data_content4": "Define the Caller ID Number of this User, to be used for P-Asserted-Identity header.",
+			"caller_id_realm": "Caller ID Realm",
+			"caller_id_realm_placeholder": "Realm",
+			"caller_id_realm_data_content4": "Define the Caller ID Realm of this User, to be used for P-Asserted-Identity header."
 		},
 		"vmbox": {
 			"voicemail": "Voicemail",
@@ -790,12 +827,14 @@
 			"delete_after_notification_data_content": "Delete the voicemail after the notification has been sent",
 			"not_configurable": "Configurable via menu?",
 			"not_configurable_data_content": " If unchecked, it will disallow the user to configure voicemail via the menu",
+			"fast_forward_rewind": "Enable fast-forward and rewind?",
+			"fast_forward_rewind_data_content": "If enabled, it will allow the user to fast forward and rewind their voicemail messages",
+			"oldest_message_first": "Sort voicemail box by oldest message first",
+			"oldest_message_first_data_content": "If enabled, voicemails will be played in order from oldest to newest",
 			"delete": "Delete",
 			"save": "Save",
 			"voicemail_boxes_label": "Voicemail Boxes",
 			"not_set": "- Not set -",
-			"no": "- No",
-			"owner": "owner -",
 			"there_were_errors_on_the_form": "There were errors on the form, please correct!",
 			"are_you_sure_you_want_to_delete": "Are you sure you want to delete this voicemail box?",
 			"no_name": "(no name)",
@@ -820,12 +859,17 @@
 		"accountSettings": {
 			"title": "Account Settings",
 			"callerId": {
-				"titleOutbound": "Account's Outbound Caller ID",
-				"titleInbound": "Account's Inbound Caller ID",
+				"titleOutbound": "Account's External/Off-net Caller ID",
+				"titleInbound": "Account's Internal/On-net Caller ID",
 				"titleEmergency": "Account's Emergency Caller ID",
+				"titleAsserted": "Account's Asserted ID",
 				"nameLabel": "Caller ID Name:",
 				"numberLabel": "Caller ID Number:",
-				"defaultNumber": "Default"
+				"realmLabel": "Caller ID Realm:",
+				"defaultNumber": "Default",
+				"messages": {
+					"invalidNumber": "Please enter a valid number"
+				}
 			},
 			"musicOnHold": {
 				"title": "Account's Music on Hold",
@@ -871,6 +915,7 @@
 			"star_data_content": "The star is mandatory for any feature code, that's why it has been added by default.",
 			"feature_codes_label": "Feature Codes",
 			"nothing_to_save": "Nothing to save",
+			"directed_ext_pickup": "Directed Extension Pickup",
 			"enable_call_forward": "Enable Call-Forward",
 			"call_forward_cat": "Call-Forward",
 			"disable_call_forward": "Disable Call-Forward",
@@ -989,6 +1034,15 @@
 			"selectedUsers": "Selected Users"
 		},
 
+		"setCav": {
+			"title": "Set CAV",
+			"popupTitle": "Setting custom application vars",
+			"tip": "Set Custom Application Var ",
+			"help": "This feature allows you to set custom application variables providing key/value",
+			"key": "Key",
+			"value": "Value"
+		},
+
 		"__comment": "UI-2646: adding ring group togle to adv. callflows",
 		"__version": "v4.1",
 		"ringGroupToggle": {
@@ -1102,6 +1156,48 @@
 			"toggle": {
 				"label": "Toggle Do Not Disturb",
 				"tip": "Toggles Do Not Disturb"
+			}
+		},
+
+		"__comment": "UI-3210: Add Set Ringtone callflow element",
+		"setAlertInfo": {
+			"name": "Distinctive Ring",
+			"title": "Set Distinctive Ring",
+			"label": "\"Alert-Info\" Header",
+			"tip": "Set distinctive ring for incoming call"
+		},
+
+		"webhook": {
+			"help": "This feature allows you to trigger a webhook call at any level of the callflow, to get \"real time\" info on how the callflow is behaving.",
+			"popupTitle": "Trigger Webhook",
+			"title": "Webhook",
+			"tip": "Trigger a webhook at any level in a callflow to get \"real time\" info on how the callflow is behaving.",
+			"uri": {
+				"label": "URL",
+				"help": "The HTTP URI to send the request",
+				"errorMessages": {
+					"url": "Invalid URL"
+				}
+			},
+			"httpVerb": {
+				"label": "Request Type",
+				"help": "HTTP method to use when sending the request"
+			},
+			"format": {
+				"label": "Body Format",
+				"help": "Format to use when sending the webhook ",
+				"options": {
+					"formData": "FORM-DATA",
+					"json": "JSON"
+				}
+			},
+			"retries": {
+				"label": "Re-try attempts",
+				"help": "How many times to retry the request if the host isn't available"
+			},
+			"customData": {
+				"label": "Custom data (optional)",
+				"help": "These properties will be added to the event and will overwrite existing values"
 			}
 		}
 	},
@@ -1276,5 +1372,9 @@
 			"title": "Show All Callflows",
 			"help": "As an admin, you're allowed to see all the existing callflows in this page. This include \"Applications\" Callflows that are created by other apps, but that you don't necesserarily want to update. If you wish to reduce clutter, you can switch this off to hide these callflows."
 		}
+	},
+	"node": {
+		"disabled": "Node disabled",
+		"confirmEnable": "This node is disabled. Do you want to enable it?"
 	}
 }

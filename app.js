@@ -421,20 +421,43 @@ define(function(require) {
 				var formattedData = self.formatAccountSettingsData(accountSettingsData),
 					template = $(self.getTemplate({
 						name: 'accountSettings',
-						data: formattedData
+						data: _.merge({
+							showPAssertedIdentity: monster.config.whitelabel.showPAssertedIdentity
+						}, formattedData)
 					})),
 					widgetBlacklist = self.renderBlacklists(template, accountSettingsData);
 
 				monster.ui.tooltips(template);
 
+				// Setup input fields
 				monster.ui.chosen(template.find('.cid-number-select, .preflow-callflows-dropdown'));
+				monster.ui.mask(template.find('.phone-number'), 'phoneNumber');
+
+				// Set validation rules
+				monster.ui.validate(template.find('#account_settings_form'), {
+					rules: {
+						'caller_id.asserted.number': {
+							phoneNumber: true
+						},
+						'caller_id.asserted.realm': {
+							realm: true
+						}
+					},
+					messages: {
+						'caller_id.asserted.number': self.i18n.active().callflows.accountSettings.callerId.messages.invalidNumber
+					}
+				});
+
 				container.empty().append(template);
+
 				self.bindAccountSettingsEvents(template, accountSettingsData, widgetBlacklist);
 			});
 		},
 
 		formatAccountSettingsData: function(data) {
 			var formattedData = data;
+
+			formattedData.showMediaUploadDisclosure = monster.config.whitelabel.showMediaUploadDisclosure;
 
 			formattedData.silenceMedia = 'silence_stream://300000';
 
@@ -517,15 +540,6 @@ define(function(require) {
 				$(this).tab('show');
 			});
 
-			monster.ui.validate(template.find('#account_settings_form'), {
-				rules: {
-					'extra.shoutcastUrl': {
-						protocol: true,
-						required: true
-					}
-				}
-			});
-
 			template.find('.media-dropdown').on('change', function() {
 				template.find('.shoutcast-div').toggleClass('active', $(this).val() === 'shoutcast').find('input').val('');
 			});
@@ -606,50 +620,59 @@ define(function(require) {
 			});
 
 			template.find('.account-settings-update').on('click', function() {
-				if (monster.ui.valid(template.find('#account_settings_form'))) {
-					var formData = monster.ui.getFormData('account_settings_form'),
-						newData = $.extend(true, {}, data.account, formData);
-
-					if (formData.music_on_hold.media_id === '') {
-						delete newData.music_on_hold.media_id;
-					} else if (formData.music_on_hold.media_id === 'shoutcast') {
-						newData.music_on_hold.media_id = template.find('.shoutcast-url-input').val();
-					}
-
-					if (formData.caller_id.external.name === '') {
-						delete newData.caller_id.external.name;
-					}
-					if (formData.caller_id.external.number === '') {
-						delete newData.caller_id.external.number;
-					}
-
-					if (formData.preflow.always === '_disabled') {
-						delete newData.preflow.always;
-					}
-
-					if (newData.hasOwnProperty('outbound_flags')) {
-						newData.outbound_flags.dynamic = newData.outbound_flags.dynamic ? newData.outbound_flags.dynamic.split(',') : [];
-						newData.outbound_flags.static = newData.outbound_flags.static ? newData.outbound_flags.static.split(',') : [];
-						_.isEmpty(newData.outbound_flags.dynamic) && delete newData.outbound_flags.dynamic;
-						_.isEmpty(newData.outbound_flags.static) && delete newData.outbound_flags.static;
-						_.isEmpty(newData.outbound_flags) && delete newData.outbound_flags;
-					}
-
-					newData.blacklists = widgetBlacklist.getSelectedItems();
-
-					delete newData.extra;
-
-					self.callApi({
-						resource: 'account.update',
-						data: {
-							accountId: newData.id,
-							data: newData
-						},
-						success: function(data, status) {
-							self.render();
-						}
-					});
+				// Validate form
+				if (!monster.ui.valid(template.find('#account_settings_form'))) {
+					return;
 				}
+
+				// Collect data
+				var formData = monster.ui.getFormData('account_settings_form'),
+					newData = _.merge({}, data.account, formData);
+
+				// Format data
+				if (_.has(newData.caller_id, 'asserted')) {
+					newData.caller_id.asserted.number = monster.util.getFormatPhoneNumber(newData.caller_id.asserted.number).e164Number;
+				}
+
+				// Clean empty data
+				if (formData.music_on_hold.media_id === '') {
+					delete newData.music_on_hold.media_id;
+				} else if (formData.music_on_hold.media_id === 'shoutcast') {
+					newData.music_on_hold.media_id = template.find('.shoutcast-url-input').val();
+				}
+
+				self.compactObject(newData.caller_id);
+
+				if (_.isEmpty(newData.caller_id)) {
+					delete newData.caller_id;
+				}
+
+				if (formData.preflow.always === '_disabled') {
+					delete newData.preflow.always;
+				}
+
+				if (newData.hasOwnProperty('outbound_flags')) {
+					newData.outbound_flags.dynamic = newData.outbound_flags.dynamic ? newData.outbound_flags.dynamic.split(',') : [];
+					newData.outbound_flags.static = newData.outbound_flags.static ? newData.outbound_flags.static.split(',') : [];
+					_.isEmpty(newData.outbound_flags.dynamic) && delete newData.outbound_flags.dynamic;
+					_.isEmpty(newData.outbound_flags.static) && delete newData.outbound_flags.static;
+					_.isEmpty(newData.outbound_flags) && delete newData.outbound_flags;
+				}
+
+				newData.blacklists = widgetBlacklist.getSelectedItems();
+
+				delete newData.extra;
+
+				self.callApi({
+					resource: 'account.update',
+					data: {
+						accountId: newData.id,
+						data: newData
+					},
+					success: function(data, status) {
+						self.render();
+					}
+				});
 			});
 		},
 
@@ -856,7 +879,9 @@ define(function(require) {
 
 			_.each(data.data, function(callflow) {
 				var formattedNumbers = _.map(callflow.numbers || '-', function(number) {
-						return monster.util.formatPhoneNumber(number);
+						return _.startsWith('+', number)
+							? monster.util.formatPhoneNumber(number)
+							: number;
 					}),
 					listNumbers = formattedNumbers.toString(),
 					isFeatureCode = callflow.featurecode !== false && !_.isEmpty(callflow.featurecode);
@@ -979,9 +1004,10 @@ define(function(require) {
 			var self = this,
 				branch = self.branch(self.construct_action(json));
 
-			branch.data.data = ('data' in json) ? json.data : {};
+			branch.data.data = _.get(json, 'data', {});
 			branch.id = ++id;
 			branch.key = key;
+			branch.disabled = _.get(json, 'data.skip_module');
 
 			branch.caption = self.actions.hasOwnProperty(branch.actionName) ? self.actions[branch.actionName].caption(branch, self.flow.caption_map) : '';
 
@@ -1123,16 +1149,16 @@ define(function(require) {
 					return true;
 				};
 
-				this.getMetadata = function(key) {
+				this.getMetadata = function(key, defaultValue) {
 					var value;
 
-					if ('data' in this.data && key in this.data.data) {
+					if (_.has(this.data, ['data', key])) {
 						value = this.data.data[key];
 
 						return (value === 'null') ? null : value;
 					}
 
-					return false;
+					return _.isUndefined(defaultValue) ? false : defaultValue;
 				};
 
 				this.setMetadata = function(key, value) {
@@ -1439,7 +1465,11 @@ define(function(require) {
 							row = $(self.getTemplate({
 								name: 'rowNumber',
 								data: {
-									numbers: numbers
+									numbers: _.map(numbers, function(number) {
+										return _.startsWith('+', number)
+											? monster.util.formatPhoneNumber(number)
+											: number;
+									})
 								}
 							}));
 
@@ -1570,22 +1600,45 @@ define(function(require) {
 					}));
 
 					// If an API request takes some time, the user can try to re-click on the element, we do not want to let that re-fire a request to the back-end.
-					// So we set a 500ms timer that will prevent any other interaction with the callflow element.
-					var isAlreadyClicked = false;
+					// So we set a 500ms debounce wait that will prevent any other interaction with the callflow element.
+					node_html.find('.module').on('click', _.debounce(function() {
+						monster.waterfall([
+							function(waterfallCallback) {
+								if (node.disabled) {
+									monster.ui.confirm(self.i18n.active().callflowsApp.editor.confirmDialog.enableModule.text,
+										function() {
+											waterfallCallback(null, false);
+										},
+										function() {
+											waterfallCallback(null, true);
+										}, {
+											cancelButtonText: self.i18n.active().callflowsApp.editor.confirmDialog.enableModule.cancel,
+											confirmButtonText: self.i18n.active().callflowsApp.editor.confirmDialog.enableModule.ok
+										});
+								} else {
+									waterfallCallback(null, null);
+								}
+							}
+						], function(err, disabled) {
+							if (!_.isNull(disabled)) {
+								node.disabled = disabled;
+								if (_.has(node, 'data.data.skip_module')) {
+									node.data.data.skip_module = disabled;
+								}
 
-					node_html.find('.module').on('click', function() {
-						if (!isAlreadyClicked) {
+								if (!disabled) {
+									node_html.closest('.node').removeClass('disabled');
+								}
+							}
+
 							self.actions[node.actionName].edit(node, function() {
 								self.repaintFlow();
 							});
-
-							isAlreadyClicked = true;
-
-							setTimeout(function() {
-								isAlreadyClicked = false;
-							}, 500);
-						}
-					});
+						});
+					}, 500, {
+						leading: true,
+						trailing: false
+					}));
 				}
 
 				//make names of callflow nodes clickable
@@ -2048,6 +2101,22 @@ define(function(require) {
 					}
 				} else {
 					input.unbind('.link');
+				}
+			});
+		},
+
+		/**
+		 * Recursively unsets `obj`'s empty properties by mutating it
+		 * @param  {Object} obj  Object to compact
+		 */
+		compactObject: function(obj) {
+			var self = this;
+			_.each(obj, function(value, key) {
+				if (_.isPlainObject(value)) {
+					self.compactObject(value);
+				}
+				if (_.isEmpty(value)) {
+					_.unset(obj, key);
 				}
 			});
 		}
